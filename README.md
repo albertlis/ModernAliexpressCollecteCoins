@@ -29,12 +29,17 @@ An automated tool to help collect daily coins on AliExpress with human-like inte
    pip install -r requirements.txt
    ```
 
-3. Create a `.env` file for your credentials:
+3. Install Playwright browser dependencies:
+   ```
+   playwright install
+   ```
+
+4. Create a `.env` file for your credentials:
    ```
    cp .env.example .env
    ```
 
-4. Edit the `.env` file with your AliExpress login credentials:
+5. Edit the `.env` file with your AliExpress login credentials:
    ```
    ALIEXPRESS_EMAIL=your_actual_email@example.com
    ALIEXPRESS_PASSWORD=your_actual_password
@@ -42,7 +47,13 @@ An automated tool to help collect daily coins on AliExpress with human-like inte
 
 ## Usage
 
-Run the script with:
+Run the new Playwright-powered script with:
+
+```
+python main.py
+```
+
+Legacy Selenium script (kept for reference) can still be started with:
 
 ```
 python collect_coins.py
@@ -92,6 +103,7 @@ You can set up Windows Task Scheduler to run the script automatically once per d
 
 - The script requires manual confirmation steps, so fully unattended operation isn't possible with the current version
 - If you want completely unattended operation, you would need to modify the script to remove the `input()` prompts
+- The Playwright version (`main.py`) removes manual prompts and attempts to recover automatically if elements move around
 - Running automated scripts that interact with websites may violate terms of service
 - Use at your own risk and consider AliExpress's policies
 
