@@ -351,11 +351,56 @@ def find_and_click_collect_button(page: Page) -> bool:
     return False
 
 
+def dismiss_passkey_dialog(page: Page) -> bool:
+    """Check for and dismiss the passkey setup dialog if it appears."""
+    try:
+        print("Checking for passkey dialog...")
+
+        # Try to find the passkey dialog
+        passkey_dialog = page.locator("div[aria-label='Set up a passkey']").first
+
+        # Check if dialog is visible with a short timeout
+        try:
+            passkey_dialog.wait_for(state="visible", timeout=5000)
+            print("Passkey dialog detected. Dismissing...")
+
+            # Random mouse movement before closing (human behavior)
+            if random.random() < 0.6:
+                human_sim.random_mouse_movement(page)
+                random_sleep(0.3, 0.6)
+
+            # Find and click the close button
+            close_button = page.locator("button.close-icon-container.dialog-close-icon").first
+            wait_and_click_element(
+                close_button,
+                "Passkey dialog close button",
+                timeout=5000,
+                min_sleep=0.4,
+                max_sleep=0.8,
+                page=page
+            )
+
+            print("Passkey dialog dismissed successfully")
+            random_sleep(0.5, 1.0)
+            return True
+
+        except PlaywrightTimeoutError:
+            print("No passkey dialog detected - continuing")
+            return False
+
+    except Exception as exc:
+        print(f"Error while checking for passkey dialog: {exc}")
+        return False
+
+
 def navigate_to_coin_page(page: Page) -> None:
     """Navigate to coin collection page with human-like delay."""
     print("Going to coin page after country change.")
     page.goto(COIN_PAGE_URL, wait_until="domcontentloaded")
     random_sleep(2, 3)
+
+    # Check for and dismiss passkey dialog if present
+    dismiss_passkey_dialog(page)
 
 
 def run_collection_flow(page: Page, use_korea: bool = False) -> None:
@@ -401,9 +446,12 @@ def run_automation(page: Page, use_korea: bool = False) -> None:
 
     if login(page):
         print("Successfully logged in")
-
+        # Check for passkey dialog after login
+        random_sleep(1.0, 2.0)
+        dismiss_passkey_dialog(page)
     else:
         print("Login process failed, attempting to continue anyway...")
+
     run_collection_flow(page, use_korea=use_korea)
     print("Coin collection process completed.")
 
