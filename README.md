@@ -1,19 +1,33 @@
-# AliExpress Coin Collector
+# AliExpress Coin Collector - Mobile Edition
 
-An automated tool to help collect daily coins on AliExpress with human-like interactions to avoid detection.
+An automated tool to help collect daily coins on AliExpress with **realistic mobile device simulation** to avoid detection.
 
 ## Features
 
+- **Mobile Device Simulation**: Emulates Android smartphone (Samsung Galaxy S23 / Google Pixel 7)
+- **Touch Events**: Uses touch/tap interactions instead of mouse movements
+- **Mobile User Agent**: Authentic mobile browser fingerprint
+- **Anti-Detection**: Advanced fingerprinting protection and human-like behavior
 - Automatic login to AliExpress account
-- Changes region to Korea (for maximum coin rewards)
+- Optional region change to Korea (for maximum coin rewards)
 - Collects daily coins with realistic human-like behavior
-- Interactive manual confirmation steps for critical actions
 - Secure credential management using environment variables
+- Scheduled mode for automated daily collection
+
+## Device Configuration
+
+The script now simulates a **real mobile device**:
+- **Device**: Samsung Galaxy S23 (Poland locale) or Google Pixel 7 (US locale)
+- **Screen**: 412x915 pixels, 3x DPI
+- **Platform**: Android 13
+- **Browser**: Chrome Mobile 120
+- **Touch**: Enabled with maxTouchPoints=5
+- **Memory**: 8GB RAM, 8-core CPU
 
 ## Prerequisites
 
 - Python 3.7+
-- Google Chrome browser
+- Playwright library
 - A valid AliExpress account
 
 ## Installation
@@ -47,26 +61,51 @@ An automated tool to help collect daily coins on AliExpress with human-like inte
 
 ## Usage
 
-Run the new Playwright-powered script with:
+### Basic Usage (Manual Run)
 
-```
+Run the mobile-optimized script with:
+
+```bash
 python main.py
 ```
 
-Legacy Selenium script (kept for reference) can still be started with:
+### Command Line Options
 
+```bash
+# Run in headless mode (no visible browser window)
+python main.py --headless
+
+# Use different locale/timezone
+python main.py --locale us_east    # Available: poland (default), us_east
+
+# Enable Korea region change (optional, disabled by default)
+python main.py --use-korea
+
+# Combine options
+python main.py --headless --locale poland --use-korea
+
+# Scheduled mode (runs once daily at random time between 10:00-14:00)
+python main.py --schedule --headless
 ```
-python collect_coins.py
-```
+
+### What the Script Does
 
 The script will:
-1. Open a Chrome browser window
+1. **Simulate Android mobile device** (Samsung Galaxy S23 or Pixel 7)
 2. Navigate to the AliExpress coin collection page
 3. Log in with your credentials from the `.env` file
-4. Ask for manual confirmation at critical steps (to ensure correct elements are clicked)
-5. Change region to Korea for maximum coin benefits
-6. Collect the daily coins
-7. Close the browser when complete
+4. (Optional) Change region to Korea for maximum coin benefits (if `--use-korea` is enabled)
+5. Collect the daily coins using touch/tap simulation
+6. Close the browser when complete
+
+### Mobile Simulation Features
+
+- ✅ **Touch Events**: All interactions use mobile touch/tap gestures
+- ✅ **Mobile User Agent**: Authentic Android Chrome mobile browser
+- ✅ **Mobile Viewport**: 412x915 resolution (typical mobile phone)
+- ✅ **Device Properties**: Proper mobile hardware fingerprint (8GB RAM, 8-core CPU)
+- ✅ **Anti-Detection**: Canvas/WebGL fingerprinting protection
+- ✅ **Human Behavior**: Realistic delays, swipes, and touch patterns
 
 ## Automated Daily Collection with Windows Task Scheduler
 

@@ -176,28 +176,28 @@ class HumanBehaviorSimulator:
 
 class SingleUserProfile:
     """
-    Consistent browser fingerprint for a single user.
-    All values are fixed to simulate the same person using the same device.
+    Consistent mobile browser fingerprint for a single user.
+    All values are fixed to simulate the same person using the same mobile device.
     Supports multiple locales: Poland (default) and US East.
     """
 
-    # Locale configurations
+    # Locale configurations (mobile)
     LOCALES = {
         "poland": {
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
             "languages": ["pl-PL", "pl", "en"],
             "timezone": "Europe/Warsaw",
         },
         "us_east": {
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "user_agent": "Mozilla/5.0 (Linux; Android 13; Pixel 7 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
             "languages": ["en-US", "en"],
             "timezone": "America/New_York",
         }
     }
 
-    VIEWPORT = {"width": 1920, "height": 1080}
-    HARDWARE_CONCURRENCY = 8  # 8-core CPU
-    DEVICE_MEMORY = 16  # 16 GB RAM
+    VIEWPORT = {"width": 393, "height": 873}  # Mobile viewport (Pixel 7 Pro)
+    HARDWARE_CONCURRENCY = 8  # 8-core CPU (modern flagship phones)
+    DEVICE_MEMORY = 8  # 8 GB RAM (mobile device)
 
     def __init__(self, locale: str = "poland"):
         """Initialize profile with specified locale."""

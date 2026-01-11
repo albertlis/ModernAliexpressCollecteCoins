@@ -9,4 +9,5 @@ dependencies = [
     "python-dotenv",
     "playwright-stealth",
     "pyautogui",
+    "schedule",
 ]

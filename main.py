@@ -1,5 +1,6 @@
 import argparse
 import contextlib
+import datetime
 import os
 import random
 import re
@@ -7,6 +8,7 @@ import sys
 import time
 from typing import Sequence
 
+import schedule
 from dotenv import load_dotenv
 from playwright.sync_api import (
     Locator,
@@ -40,7 +42,7 @@ if not ALIEXPRESS_EMAIL or not ALIEXPRESS_PASSWORD:
     print("Please create a .env file with these variables or set them in your environment.")
     sys.exit(1)
 
-COIN_PAGE_URL = "https://s.click.aliexpress.com/e/_DB2kEjh"
+COIN_PAGE_URL = "https://m.aliexpress.com/p/coin-index/index.html"
 MAX_COLLECTION_ATTEMPTS = 3
 
 # Fallback selectors tried in order when ship-to dropdown structure changes
@@ -52,6 +54,8 @@ SHIP_TO_SELECTORS = [
 
 # Multiple selector strategies for collect button, including Korean UI variants
 COLLECT_BUTTON_SELECTORS = [
+    "//button[@id='signButton']",
+    "//button[contains(@class, 'aecoin-signButton-') or contains(@class, 'aecoin-checkInButton-')]",
     "//div[contains(@class, 'checkin-button')]",
     "//div[contains(text(), 'Collect') and contains(@class, 'button')]",
     "//div[contains(text(), '출석체크') and contains(@class, 'button')]",  # "attendance check"
@@ -108,18 +112,40 @@ def safe_click(locator: Locator, name: str, page: Page | None = None) -> None:
         if page:
             move_mouse_to_element(page, locator)
 
-        locator.click(timeout=5000)
+        locator.click(timeout=5000, no_wait_after=True)
     except Exception as exc:
         print(f"Normal click failed for {name}: {exc}. Trying click with force")
         try:
-            locator.click(force=True, timeout=5000)
+            locator.click(force=True, timeout=5000, no_wait_after=True)
         except Exception as exc2:
             print(f"Force click failed: {exc2}. Trying JavaScript click")
             try:
                 locator.evaluate("el => el.click()")
             except Exception as exc3:
                 print(f"JavaScript click failed: {exc3}. Trying dispatch click event")
-                locator.dispatch_event("click")
+                try:
+                    locator.dispatch_event("click")
+                except Exception as exc4:
+                    print(f"Dispatch click failed: {exc4}. Trying direct JavaScript click on center")
+                    try:
+                        # Last resort: click directly at element's center
+                        locator.evaluate("""
+                            el => {
+                                const rect = el.getBoundingClientRect();
+                                const x = rect.left + rect.width / 2;
+                                const y = rect.top + rect.height / 2;
+                                const clickEvent = new MouseEvent('click', {
+                                    view: window,
+                                    bubbles: true,
+                                    cancelable: true,
+                                    clientX: x,
+                                    clientY: y
+                                });
+                                el.dispatchEvent(clickEvent);
+                            }
+                        """)
+                    except Exception as exc5:
+                        print(f"All click methods failed: {exc5}")
 
 
 def type_like_human(locator: Locator, text: str) -> None:
@@ -162,7 +188,14 @@ def wait_and_click_element(
 ) -> None:
     """Wait for element, scroll into view, highlight, and click with human-like delay."""
     locator.wait_for(state="visible", timeout=timeout)
-    locator.scroll_into_view_if_needed()
+
+    # Use JavaScript scroll to avoid waiting for stability (handles animated elements)
+    try:
+        locator.evaluate("el => el.scrollIntoView({behavior: 'auto', block: 'center'})")
+        random_sleep(0.3, 0.5)  # Short delay for scroll
+    except Exception as scroll_error:
+        print(f"JavaScript scroll failed for {element_name}: {scroll_error}. Continuing anyway...")
+
     highlight(locator)
     random_sleep(min_sleep, max_sleep)
     safe_click(locator, element_name, page)
@@ -351,56 +384,11 @@ def find_and_click_collect_button(page: Page) -> bool:
     return False
 
 
-def dismiss_passkey_dialog(page: Page) -> bool:
-    """Check for and dismiss the passkey setup dialog if it appears."""
-    try:
-        print("Checking for passkey dialog...")
-
-        # Try to find the passkey dialog
-        passkey_dialog = page.locator("div[aria-label='Set up a passkey']").first
-
-        # Check if dialog is visible with a short timeout
-        try:
-            passkey_dialog.wait_for(state="visible", timeout=5000)
-            print("Passkey dialog detected. Dismissing...")
-
-            # Random mouse movement before closing (human behavior)
-            if random.random() < 0.6:
-                human_sim.random_mouse_movement(page)
-                random_sleep(0.3, 0.6)
-
-            # Find and click the close button
-            close_button = page.locator("button.close-icon-container.dialog-close-icon").first
-            wait_and_click_element(
-                close_button,
-                "Passkey dialog close button",
-                timeout=5000,
-                min_sleep=0.4,
-                max_sleep=0.8,
-                page=page
-            )
-
-            print("Passkey dialog dismissed successfully")
-            random_sleep(0.5, 1.0)
-            return True
-
-        except PlaywrightTimeoutError:
-            print("No passkey dialog detected - continuing")
-            return False
-
-    except Exception as exc:
-        print(f"Error while checking for passkey dialog: {exc}")
-        return False
-
-
 def navigate_to_coin_page(page: Page) -> None:
     """Navigate to coin collection page with human-like delay."""
     print("Going to coin page after country change.")
     page.goto(COIN_PAGE_URL, wait_until="domcontentloaded")
     random_sleep(2, 3)
-
-    # Check for and dismiss passkey dialog if present
-    dismiss_passkey_dialog(page)
 
 
 def run_collection_flow(page: Page, use_korea: bool = False) -> None:
@@ -439,19 +427,59 @@ def run_collection_flow(page: Page, use_korea: bool = False) -> None:
         print("Maximum attempts reached without successful coin collection.")
 
 
+def click_login_button_on_coin_page(page: Page) -> bool:
+    """Click the 'Log in' button that appears on the coin page before login."""
+    try:
+        print("Looking for 'Log in' button on coin page...")
+
+        # Try multiple selectors for the login button
+        login_button_selectors = [
+            "//button[contains(@class, 'aecoin-loginButton')]",
+            "//button[contains(text(), 'Log in')]",
+            "//button[contains(text(), 'log in')]",
+            "//button[contains(text(), 'Login')]",
+            "//button[contains(text(), 'login')]",
+            "//div[contains(@class, 'login-button') or contains(@class, 'loginButton')]//button",
+        ]
+
+        login_button = None
+        for selector in login_button_selectors:
+            try:
+                login_button = page.locator(selector).first
+                login_button.wait_for(state="visible", timeout=5000)
+                print(f"Found login button with selector: {selector}")
+                break
+            except PlaywrightTimeoutError:
+                continue
+
+        if login_button:
+            print("Clicking 'Log in' button...")
+            wait_and_click_element(login_button, "Login button on coin page", timeout=5000, min_sleep=0.5, max_sleep=1.0, page=page)
+            random_sleep(2, 3)
+            print("Login button clicked, waiting for login page to load...")
+            return True
+        else:
+            print("No 'Log in' button found - user might already be logged in or page structure changed")
+            return False
+
+    except Exception as exc:
+        print(f"Error clicking login button on coin page: {exc}")
+        return False
+
+
 def run_automation(page: Page, use_korea: bool = False) -> None:
     """Execute the main automation workflow: navigate, login, and collect coins."""
     navigate_to_coin_page(page)
     print("Website loaded")
 
+    # Check if there's a "Log in" button on the coin page and click it
+    click_login_button_on_coin_page(page)
+
     if login(page):
         print("Successfully logged in")
-        # Check for passkey dialog after login
-        random_sleep(1.0, 2.0)
-        dismiss_passkey_dialog(page)
+
     else:
         print("Login process failed, attempting to continue anyway...")
-
     run_collection_flow(page, use_korea=use_korea)
     print("Coin collection process completed.")
 
@@ -483,7 +511,6 @@ def main(headless: bool = False, locale: str = "", use_korea: bool = False) -> N
                 "--disable-features=IsolateOrigins,site-per-process",
                 "--disable-infobars",
                 "--window-size={},{}".format(viewport['width'], viewport['height']),
-                "--start-maximized",
                 # Additional anti-detection flags
                 "--disable-automation",
                 "--disable-blink-features=AutomationControlled",
@@ -492,7 +519,6 @@ def main(headless: bool = False, locale: str = "", use_korea: bool = False) -> N
                 "--profile-directory=Default",
                 "--incognito",
                 "--disable-plugins-discovery",
-                "--start-maximized",
             ],
         )
 
@@ -514,21 +540,21 @@ def main(headless: bool = False, locale: str = "", use_korea: bool = False) -> N
                 "Sec-Fetch-Site": "none",
                 "Sec-Fetch-User": "?1",
                 "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"Windows"',
+                "sec-ch-ua-mobile": "?1",
+                "sec-ch-ua-platform": '"Android"',
             },
-            # Consistent device parameters
-            has_touch=False,
-            device_scale_factor=1,
-            is_mobile=False,
+            # Mobile device parameters
+            has_touch=True,
+            device_scale_factor=2.625,  # Mobile device pixel ratio
+            is_mobile=True,
         )
 
         # Inject comprehensive stealth scripts
         inject_stealth_scripts(context, locale=locale)
 
-        print("✓ Advanced anti-detection measures activated")
+        print("✓ Advanced anti-detection measures activated (Mobile)")
         print("✓ Canvas and WebGL fingerprinting protection enabled")
-        print("✓ Realistic browser fingerprint configured")
+        print("✓ Realistic mobile browser fingerprint configured")
 
         page = context.new_page()
 
@@ -570,6 +596,65 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable country change to Korea before collecting coins (default: disabled)"
     )
+    parser.add_argument(
+        "--schedule",
+        action="store_true",
+        help="Run in scheduled mode - execute once per day at random time between 10:00-14:00"
+    )
 
     args = parser.parse_args()
-    main(headless=args.headless, locale=args.locale, use_korea=args.use_korea)
+
+    if args.schedule:
+        print("=" * 60)
+        print("AliExpress Coin Collector - SCHEDULED MODE")
+        print("=" * 60)
+        print("Running once per day at random time between 10:00 and 14:00")
+        print()
+
+        def schedule_next_run():
+            """Schedule the next run at a random time between 10:00 and 14:00"""
+            # Clear any existing jobs
+            schedule.clear()
+
+            # Generate random time between 10:00 and 14:00
+            random_hour = random.randint(10, 13)
+            random_minute = random.randint(0, 59)
+            random_time = f"{random_hour:02d}:{random_minute:02d}"
+
+            print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Next run scheduled for: {random_time}")
+
+            def job():
+                print("\n" + "=" * 60)
+                print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Starting scheduled coin collection...")
+                print("=" * 60 + "\n")
+
+                try:
+                    main(headless=args.headless, locale=args.locale, use_korea=args.use_korea)
+                except Exception as e:
+                    print(f"\n[ERROR] Scheduled run failed: {e}")
+
+                print("\n" + "=" * 60)
+                print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Scheduled run completed")
+                print("=" * 60 + "\n")
+
+                # Schedule the next run
+                schedule_next_run()
+
+            schedule.every().day.at(random_time).do(job)
+
+        # Schedule the first run
+        schedule_next_run()
+
+        print("Scheduler started. Press Ctrl+C to exit.")
+        print()
+
+        try:
+            while True:
+                schedule.run_pending()
+                time.sleep(60)  # Check every minute
+        except KeyboardInterrupt:
+            print("\n\nScheduler stopped by user.")
+            sys.exit(0)
+    else:
+        # Run immediately without scheduling
+        main(headless=args.headless, locale=args.locale, use_korea=args.use_korea)
