@@ -112,11 +112,11 @@ def safe_click(locator: Locator, name: str, page: Page | None = None) -> None:
         if page:
             move_mouse_to_element(page, locator)
 
-        locator.click(timeout=5000, no_wait_after=True)
+        locator.click(timeout=30000, no_wait_after=True)
     except Exception as exc:
         print(f"Normal click failed for {name}: {exc}. Trying click with force")
         try:
-            locator.click(force=True, timeout=5000, no_wait_after=True)
+            locator.click(force=True, timeout=30000, no_wait_after=True)
         except Exception as exc2:
             print(f"Force click failed: {exc2}. Trying JavaScript click")
             try:
@@ -165,7 +165,7 @@ def type_like_human(locator: Locator, text: str) -> None:
             random_sleep(0.5, 1.2)
 
 
-def first_visible_locator(page: Page, selectors: Sequence[str], timeout: int = 5000) -> Locator:
+def first_visible_locator(page: Page, selectors: Sequence[str], timeout: int = 30000) -> Locator:
     """Try selectors in order and return the first one that becomes visible."""
     last_error: Exception | None = None
     for selector in selectors:
@@ -181,7 +181,7 @@ def first_visible_locator(page: Page, selectors: Sequence[str], timeout: int = 5
 def wait_and_click_element(
     locator: Locator, 
     element_name: str, 
-    timeout: int = 15000,
+    timeout: int = 30000,
     min_sleep: float = 0.3,
     max_sleep: float = 0.8,
     page: Page | None = None
@@ -280,18 +280,18 @@ def change_country_to_korea(page: Page) -> bool:
             human_sim.realistic_scroll(page, "down", random.randint(100, 300))
             random_sleep(0.2, 0.5)
 
-        ship_to_dropdown = first_visible_locator(page, SHIP_TO_SELECTORS, timeout=7000)
+        ship_to_dropdown = first_visible_locator(page, SHIP_TO_SELECTORS, timeout=30000)
         print("STEP 1: Ship-to dropdown found. Clicking automatically...")
-        wait_and_click_element(ship_to_dropdown, "Ship-to dropdown", timeout=7000, min_sleep=0.3, max_sleep=0.6, page=page)
+        wait_and_click_element(ship_to_dropdown, "Ship-to dropdown", timeout=30000, min_sleep=0.3, max_sleep=0.6, page=page)
         random_sleep(0.5, 0.8)
 
         country_selector = page.locator("//div[contains(@class, 'select--text--1b85oDo')]").first
         print("STEP 2: Country selector found. Clicking automatically...")
-        wait_and_click_element(country_selector, "Country selector", timeout=7000, min_sleep=0.3, max_sleep=0.6, page=page)
+        wait_and_click_element(country_selector, "Country selector", timeout=30000, min_sleep=0.3, max_sleep=0.6, page=page)
         random_sleep(0.4, 0.7)
 
         search_input = page.locator("//div[contains(@class, 'select--search--20Pss08')]/input").first
-        search_input.wait_for(state="visible", timeout=7000)
+        search_input.wait_for(state="visible", timeout=30000)
         highlight(search_input)
         print("STEP 3: Search input found. Typing 'Korea'...")
         random_sleep(0.2, 0.4)
@@ -306,22 +306,22 @@ def change_country_to_korea(page: Page) -> bool:
             "//div[contains(@class, 'select--item') and (contains(., 'Korea') or contains(., '대한민국'))]"
         ).first
         try:
-            korea_option.wait_for(state="visible", timeout=5000)
+            korea_option.wait_for(state="visible", timeout=30000)
         except PlaywrightTimeoutError:
             # If "Korea" doesn't work, try native Korean name (UI language may differ)
             print("No results for 'Korea'. Trying Korean name...")
             search_input.fill("")
             type_like_human(search_input, "대한민국")
             random_sleep(0.4, 0.7)
-            korea_option.wait_for(state="visible", timeout=5000)
+            korea_option.wait_for(state="visible", timeout=30000)
 
         print("STEP 4: Korea option found. Clicking automatically...")
-        wait_and_click_element(korea_option, "Korea option", timeout=5000, min_sleep=0.3, max_sleep=0.6, page=page)
+        wait_and_click_element(korea_option, "Korea option", timeout=30000, min_sleep=0.3, max_sleep=0.6, page=page)
         random_sleep(0.5, 0.8)
 
         save_button = page.locator("//div[contains(@class, 'es--saveBtn--w8EuBuy')]").first
         print("STEP 5: Save button found. Clicking automatically...")
-        wait_and_click_element(save_button, "Save button", timeout=7000, min_sleep=0.3, max_sleep=0.6, page=page)
+        wait_and_click_element(save_button, "Save button", timeout=30000, min_sleep=0.3, max_sleep=0.6, page=page)
         random_sleep(1, 2)
         print("Country has been saved")
         print("STEP 6: Country change complete. Continuing to the coin collection page...")
@@ -334,7 +334,7 @@ def change_country_to_korea(page: Page) -> bool:
 def verify_korea_selected(page: Page) -> bool:
     try:
         ship_to_element = page.locator("//div[contains(@class, 'ship-to--text--')]").first
-        ship_to_element.wait_for(state="visible", timeout=7000)
+        ship_to_element.wait_for(state="visible", timeout=30000)
         ship_to_text = ship_to_element.inner_text()
         print(f"Current ship-to text: {ship_to_text}")
         # KO/ is the most reliable indicator (country code + currency)
@@ -446,7 +446,7 @@ def click_login_button_on_coin_page(page: Page) -> bool:
         for selector in login_button_selectors:
             try:
                 login_button = page.locator(selector).first
-                login_button.wait_for(state="visible", timeout=5000)
+                login_button.wait_for(state="visible", timeout=30000)
                 print(f"Found login button with selector: {selector}")
                 break
             except PlaywrightTimeoutError:
@@ -454,7 +454,7 @@ def click_login_button_on_coin_page(page: Page) -> bool:
 
         if login_button:
             print("Clicking 'Log in' button...")
-            wait_and_click_element(login_button, "Login button on coin page", timeout=5000, min_sleep=0.5, max_sleep=1.0, page=page)
+            wait_and_click_element(login_button, "Login button on coin page", timeout=30000, min_sleep=0.5, max_sleep=1.0, page=page)
             random_sleep(2, 3)
             print("Login button clicked, waiting for login page to load...")
             return True
